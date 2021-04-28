@@ -18,9 +18,6 @@ import copy
 import argparse
 import numpy as np
 
-# pip install next-word-prediction
-from next_word_prediction import GPT2
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -162,54 +159,71 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
     return import_scores
 
 
-def get_substitutes(model, input_data, k):
+def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score=None, threshold=3.0):
     # substitues L,k
     # from this matrix to recover a word
-    input_data = " ".join(input_data)
-    return model.predict_next(input_data, k)
+    words = []
+    sub_len, k = substitutes.size()  # sub-len, k
+
+    if sub_len == 0:
+        return words
+        
+    elif sub_len == 1:
+        for (i,j) in zip(substitutes[0], substitutes_score[0]):
+            if threshold != 0 and j < threshold:
+                break
+            words.append(tokenizer._convert_id_to_token(int(i)))
+    else:
+        if use_bpe == 1:
+            words = get_bpe_substitues(substitutes, tokenizer, mlm_model)
+        else:
+            return words
+    #
+    # print(words)
+    return words
 
 
-# def get_bpe_substitues(substitutes, tokenizer, mlm_model):
-#     # substitutes L, k
+def get_bpe_substitues(substitutes, tokenizer, mlm_model):
+    # substitutes L, k
 
-#     substitutes = substitutes[0:12, 0:4] # maximum BPE candidates
+    substitutes = substitutes[0:12, 0:4] # maximum BPE candidates
 
-#     # find all possible candidates 
+    # find all possible candidates 
 
-#     all_substitutes = []
-#     for i in range(substitutes.size(0)):
-#         if len(all_substitutes) == 0:
-#             lev_i = substitutes[i]
-#             all_substitutes = [[int(c)] for c in lev_i]
-#         else:
-#             lev_i = []
-#             for all_sub in all_substitutes:
-#                 for j in substitutes[i]:
-#                     lev_i.append(all_sub + [int(j)])
-#             all_substitutes = lev_i
+    all_substitutes = []
+    for i in range(substitutes.size(0)):
+        if len(all_substitutes) == 0:
+            lev_i = substitutes[i]
+            all_substitutes = [[int(c)] for c in lev_i]
+        else:
+            lev_i = []
+            for all_sub in all_substitutes:
+                for j in substitutes[i]:
+                    lev_i.append(all_sub + [int(j)])
+            all_substitutes = lev_i
 
-#     # all substitutes  list of list of token-id (all candidates)
-#     c_loss = nn.CrossEntropyLoss(reduction='none')
-#     word_list = []
-#     # all_substitutes = all_substitutes[:24]
-#     all_substitutes = torch.tensor(all_substitutes) # [ N, L ]
-#     all_substitutes = all_substitutes[:24].to('cuda')
-#     # print(substitutes.size(), all_substitutes.size())
-#     N, L = all_substitutes.size()
-#     word_predictions = mlm_model(all_substitutes)[0] # N L vocab-size
-#     ppl = c_loss(word_predictions.view(N*L, -1), all_substitutes.view(-1)) # [ N*L ] 
-#     ppl = torch.exp(torch.mean(ppl.view(N, L), dim=-1)) # N  
-#     _, word_list = torch.sort(ppl)
-#     word_list = [all_substitutes[i] for i in word_list]
-#     final_words = []
-#     for word in word_list:
-#         tokens = [tokenizer._convert_id_to_token(int(i)) for i in word]
-#         text = tokenizer.convert_tokens_to_string(tokens)
-#         final_words.append(text)
-#     return final_words
+    # all substitutes  list of list of token-id (all candidates)
+    c_loss = nn.CrossEntropyLoss(reduction='none')
+    word_list = []
+    # all_substitutes = all_substitutes[:24]
+    all_substitutes = torch.tensor(all_substitutes) # [ N, L ]
+    all_substitutes = all_substitutes[:24].to('cuda')
+    # print(substitutes.size(), all_substitutes.size())
+    N, L = all_substitutes.size()
+    word_predictions = mlm_model(all_substitutes)[0] # N L vocab-size
+    ppl = c_loss(word_predictions.view(N*L, -1), all_substitutes.view(-1)) # [ N*L ] 
+    ppl = torch.exp(torch.mean(ppl.view(N, L), dim=-1)) # N  
+    _, word_list = torch.sort(ppl)
+    word_list = [all_substitutes[i] for i in word_list]
+    final_words = []
+    for word in word_list:
+        tokens = [tokenizer._convert_id_to_token(int(i)) for i in word]
+        text = tokenizer.convert_tokens_to_string(tokens)
+        final_words.append(text)
+    return final_words
 
 
-def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=512, cos_mat=None, w2i={}, i2w={}, use_bpe=1, threshold_pred_score=0.3, replace_model=None):
+def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=512, cos_mat=None, w2i={}, i2w={}, use_bpe=1, threshold_pred_score=0.3):
     # MLM-process
     words, sub_words, keys = _tokenize(feature.seq, tokenizer)
 
@@ -255,14 +269,12 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
             continue
         if keys[top_index[0]][0] > max_length - 2:
             continue
-        if tgt_word == words[0]:
-            continue
 
 
-        # substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
-        # word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
-        # CHANGED WORD SUBSTITUTION FINDER
-        substitutes = get_substitutes(replace_model, words[0:top_index[0]], k)
+        substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
+        word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
+
+        substitutes = get_substitues(substitutes, tokenizer, mlm_model, use_bpe, word_pred_scores, threshold_pred_score)
 
 
         most_gap = 0.0
@@ -469,9 +481,6 @@ def run_attack():
     print('finish get-sim-embed')
     features_output = []
 
-    # SAVE MODEL
-    replace_model = GPT2()
-
     with torch.no_grad():
         for index, feature in enumerate(features[start:end]):
             seq_a, label = feature
@@ -479,7 +488,7 @@ def run_attack():
             print('\r number {:d} '.format(index) + tgt_path, end='')
             # print(feat.seq[:100], feat.label)
             feat = attack(feat, tgt_model, mlm_model, tokenizer_tgt, k, batch_size=32, max_length=512,
-                          cos_mat=cos_mat, w2i=w2i, i2w=i2w, use_bpe=use_bpe,threshold_pred_score=threshold_pred_score, replace_model=replace_model)
+                          cos_mat=cos_mat, w2i=w2i, i2w=i2w, use_bpe=use_bpe,threshold_pred_score=threshold_pred_score)
 
             # print(feat.changes, feat.change, feat.query, feat.success)
             if feat.success > 2:
