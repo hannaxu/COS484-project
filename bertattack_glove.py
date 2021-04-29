@@ -532,4 +532,4 @@ def run_attack():
 
 
 if __name__ == '__main__':
-    print(word_vectors.similar_by_word('cat'))
+    run_attack()
