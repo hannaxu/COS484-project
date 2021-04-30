@@ -291,11 +291,14 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
         # substitutes = get_substitues(
         #     substitutes, tokenizer, mlm_model, use_bpe, word_pred_scores, threshold_pred_score)
 
-        if tgt_word not in word_vectors.vocab:
-            continue
+        # if tgt_word not in word_vectors.vocab:
+        #     continue
 
-        substitutes = [word[0]
-                       for word in word_vectors.similar_by_word(tgt_word, topn=k)]
+        try:
+            substitutes = [word[0]
+                           for word in word_vectors.similar_by_word(tgt_word, topn=k)]
+        except:
+            continue
 
         most_gap = 0.0
         candidate = None
