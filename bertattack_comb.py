@@ -115,12 +115,14 @@ def _get_masked(words):
 
 def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, tokenizer, batch_size, max_length):
     masked_words = _get_masked(words)
-    texts = [' '.join(words) for words in masked_words]  # list of text of masked words
+    # list of text of masked words
+    texts = [' '.join(words) for words in masked_words]
     all_input_ids = []
     all_masks = []
     all_segs = []
     for text in texts:
-        inputs = tokenizer.encode_plus(text, None, add_special_tokens=True, max_length=max_length, )
+        inputs = tokenizer.encode_plus(
+            text, None, add_special_tokens=True, max_length=max_length, )
         input_ids, token_type_ids = inputs["input_ids"], inputs["token_type_ids"]
         attention_mask = [1] * len(input_ids)
         padding_length = max_length - len(input_ids)
@@ -138,7 +140,8 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
     eval_data = TensorDataset(seqs)
     # Run prediction for full data
     eval_sampler = SequentialSampler(eval_data)
-    eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=batch_size)
+    eval_dataloader = DataLoader(
+        eval_data, sampler=eval_sampler, batch_size=batch_size)
     leave_1_probs = []
     for batch in eval_dataloader:
         masked_input, = batch
@@ -159,19 +162,30 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
     return import_scores
 
 ### GET SUBSTITUTION ###
-def fast_get_substitutes():
-    return None
+
+
+def fast_get_substitutes(word_vectors, tgt_word, k):
+    try:
+        substitutes = [word[0]
+                       for word in word_vectors.similar_by_word(tgt_word, topn=k)]
+        return substitutes
+    except:
+        return None
+
 
 def gpt2_get_substitutes(model, input_data, k):
     input_data = " ".join(input_data)
     return model.predict_next(input_data, k)
 
+
 def glove_get_substitutes(word_vectors, tgt_word, k):
     try:
-        substitutes = [word[0] for word in word_vectors.similar_by_word(tgt_word, topn=k)]
+        substitutes = [word[0]
+                       for word in word_vectors.similar_by_word(tgt_word, topn=k)]
         return substitutes
     except:
         return None
+
 
 def get_substitutes(substitutes, tokenizer, mlm_model, substitutes_score=None, threshold=3.0):
     # substitutes L,k
@@ -181,9 +195,9 @@ def get_substitutes(substitutes, tokenizer, mlm_model, substitutes_score=None, t
 
     if sub_len == 0:
         return words
-        
+
     elif sub_len == 1:
-        for (i,j) in zip(substitutes[0], substitutes_score[0]):
+        for (i, j) in zip(substitutes[0], substitutes_score[0]):
             if threshold != 0 and j < threshold:
                 break
             words.append(tokenizer._convert_id_to_token(int(i)))
@@ -196,8 +210,10 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
     words, sub_words, keys = _tokenize(feature.seq, tokenizer)
 
     # original label
-    inputs = tokenizer.encode_plus(feature.seq, None, add_special_tokens=True, max_length=max_length, )
-    input_ids, token_type_ids = torch.tensor(inputs["input_ids"]), torch.tensor(inputs["token_type_ids"])
+    inputs = tokenizer.encode_plus(
+        feature.seq, None, add_special_tokens=True, max_length=max_length, )
+    input_ids, token_type_ids = torch.tensor(
+        inputs["input_ids"]), torch.tensor(inputs["token_type_ids"])
     attention_mask = torch.tensor([1] * len(input_ids))
     seq_len = input_ids.size(0)
     orig_probs = tgt_model(input_ids.unsqueeze(0).to('cuda'),
@@ -214,8 +230,10 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
 
     sub_words = ['[CLS]'] + sub_words[:max_length - 2] + ['[SEP]']
     input_ids_ = torch.tensor([tokenizer.convert_tokens_to_ids(sub_words)])
-    word_predictions = mlm_model(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-    word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
+    word_predictions = mlm_model(input_ids_.to('cuda'))[
+        0].squeeze()  # seq-len(sub) vocab
+    word_pred_scores_all, word_predictions = torch.topk(
+        word_predictions, k, -1)  # seq-len k
 
     word_predictions = word_predictions[1:len(sub_words) + 1, :]
     word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
@@ -227,10 +245,12 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
 ### TEST HYPERPARAMETER WORD_IMP ###
     list_of_index = None
     if word_imp == 'mir':
-        list_of_index = sorted(enumerate(important_scores), key=lambda x: x[1], reverse=True)
-    elif word_imp = 'lir':
-        list_of_index = sorted(enumerate(important_scores), key=lambda x: x[1], reverse=False)
-    elif word_imp = 'rand':
+        list_of_index = sorted(enumerate(important_scores),
+                               key=lambda x: x[1], reverse=True)
+    elif word_imp == 'lir':
+        list_of_index = sorted(enumerate(important_scores),
+                               key=lambda x: x[1], reverse=False)
+    elif word_imp == 'rand':
         from random import shuffle
         shuffle(important_scores)
         list_of_index = important_scores
@@ -250,20 +270,24 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
         if keys[top_index[0]][0] > max_length - 2:
             continue
 
-        substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
-        word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
+        substitutes = word_predictions[keys[top_index[0]]
+                                       [0]:keys[top_index[0]][1]]  # L, k
+        word_pred_scores = word_pred_scores_all[keys[top_index[0]]
+                                                [0]:keys[top_index[0]][1]]
 
 ### MODEL SELECTION ###
         if subs == "bert":
-            substitutes = get_substitutes(substitutes, tokenizer, mlm_model, word_pred_scores, threshold_pred_score)
+            substitutes = get_substitutes(
+                substitutes, tokenizer, mlm_model, word_pred_scores, threshold_pred_score)
         elif subs == "glove":
-            substitutes = glove_get_substitutes(replace_model, tgt_word, k)
+            substitutes = glove_get_substitutes(word_vectors, tgt_word, k)
             if not substitutes:
                 continue
         elif subs == "gpt2":
-            substitutes = gpt2_get_substitutes(replace_model, words[0:top_index[0]], k)
+            substitutes = gpt2_get_substitutes(
+                replace_model, words[0:top_index[0]], k)
         elif subs == "fasttext":
-            substitutes = fast_get_substitutes()
+            substitutes = fast_get_substitutes(fasttext, tgt_word, k)
 ### END MODEL SELECTION ###
 
         most_gap = 0.0
@@ -285,8 +309,10 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
             temp_replace = final_words
             temp_replace[top_index[0]] = substitute
             temp_text = tokenizer.convert_tokens_to_string(temp_replace)
-            inputs = tokenizer.encode_plus(temp_text, None, add_special_tokens=True, max_length=max_length, )
-            input_ids = torch.tensor(inputs["input_ids"]).unsqueeze(0).to('cuda')
+            inputs = tokenizer.encode_plus(
+                temp_text, None, add_special_tokens=True, max_length=max_length, )
+            input_ids = torch.tensor(
+                inputs["input_ids"]).unsqueeze(0).to('cuda')
             seq_len = input_ids.size(1)
             temp_prob = tgt_model(input_ids)[0].squeeze()
             feature.query += 1
@@ -296,7 +322,8 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
             if temp_label != orig_label:
                 feature.change += 1
                 final_words[top_index[0]] = substitute
-                feature.changes.append([keys[top_index[0]][0], substitute, tgt_word])
+                feature.changes.append(
+                    [keys[top_index[0]][0], substitute, tgt_word])
                 feature.final_adverse = temp_text
                 feature.success = 4
                 return feature
@@ -310,7 +337,8 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
 
         if most_gap > 0:
             feature.change += 1
-            feature.changes.append([keys[top_index[0]][0], candidate, tgt_word])
+            feature.changes.append(
+                [keys[top_index[0]][0], candidate, tgt_word])
             current_prob = current_prob - most_gap
             final_words[top_index[0]] = candidate
 
@@ -329,7 +357,7 @@ def evaluate(features):
         cache_path = ''
         import tensorflow as tf
         import tensorflow_hub as hub
-    
+
         class USE(object):
             def __init__(self, cache_path):
                 super(USE, self).__init__()
@@ -339,16 +367,21 @@ def evaluate(features):
                 config.gpu_options.allow_growth = True
                 self.sess = tf.Session()
                 self.build_graph()
-                self.sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
+                self.sess.run(
+                    [tf.global_variables_initializer(), tf.tables_initializer()])
 
             def build_graph(self):
                 self.sts_input1 = tf.placeholder(tf.string, shape=(None))
                 self.sts_input2 = tf.placeholder(tf.string, shape=(None))
 
-                sts_encode1 = tf.nn.l2_normalize(self.embed(self.sts_input1), axis=1)
-                sts_encode2 = tf.nn.l2_normalize(self.embed(self.sts_input2), axis=1)
-                self.cosine_similarities = tf.reduce_sum(tf.multiply(sts_encode1, sts_encode2), axis=1)
-                clip_cosine_similarities = tf.clip_by_value(self.cosine_similarities, -1.0, 1.0)
+                sts_encode1 = tf.nn.l2_normalize(
+                    self.embed(self.sts_input1), axis=1)
+                sts_encode2 = tf.nn.l2_normalize(
+                    self.embed(self.sts_input2), axis=1)
+                self.cosine_similarities = tf.reduce_sum(
+                    tf.multiply(sts_encode1, sts_encode2), axis=1)
+                clip_cosine_similarities = tf.clip_by_value(
+                    self.cosine_similarities, -1.0, 1.0)
                 self.sim_scores = 1.0 - tf.acos(clip_cosine_similarities)
 
             def semantic_sim(self, sents1, sents2):
@@ -364,7 +397,6 @@ def evaluate(features):
 
             use = USE(cache_path)
 
-
     acc = 0
     origin_success = 0
     total = 0
@@ -378,7 +410,7 @@ def evaluate(features):
                 sim = float(use.semantic_sim([feat.seq], [feat.final_adverse]))
                 if sim < sim_thres:
                     continue
-            
+
             acc += 1
             total_q += feat.query
             total_change += feat.change
@@ -397,7 +429,8 @@ def evaluate(features):
     origin_acc = 1 - origin_success / total
     after_atk = 1 - suc
 
-    print('acc/aft-atk-acc {:.6f}/ {:.6f}, query-num {:.4f}, change-rate {:.4f}'.format(origin_acc, after_atk, query, change_rate))
+    print('acc/aft-atk-acc {:.6f}/ {:.6f}, query-num {:.4f}, change-rate {:.4f}'.format(
+        origin_acc, after_atk, query, change_rate))
 
 
 def dump_features(features, output):
@@ -424,17 +457,21 @@ def run_attack():
     parser.add_argument("--data_path", type=str, help="./data/xxx")
     parser.add_argument("--mlm_path", type=str, help="xxx mlm")
     parser.add_argument("--tgt_path", type=str, help="xxx classifier")
-    parser.add_argument("--subs", type=str, help="xxx model for substitution: bert, gpt2, fasttext, glove")
-    parser.add_argument("--word_imp", type=str, help="word importance: mir, rand, lir")
+    parser.add_argument(
+        "--subs", type=str, help="xxx model for substitution: bert, gpt2, fasttext, glove")
+    parser.add_argument("--word_imp", type=str,
+                        help="word importance: mir, rand, lir")
 
     parser.add_argument("--output_dir", type=str, help="train file")
-    parser.add_argument("--use_sim_mat", type=int, help='whether use cosine_similarity to filter out atonyms')
-    parser.add_argument("--start", type=int, help="start step, for multi-thread process")
-    parser.add_argument("--end", type=int, help="end step, for multi-thread process")
+    parser.add_argument("--use_sim_mat", type=int,
+                        help='whether use cosine_similarity to filter out atonyms')
+    parser.add_argument("--start", type=int,
+                        help="start step, for multi-thread process")
+    parser.add_argument("--end", type=int,
+                        help="end step, for multi-thread process")
     parser.add_argument("--num_label", type=int, )
     parser.add_argument("--k", type=int, )
     parser.add_argument("--threshold_pred_score", type=float, )
-
 
     args = parser.parse_args()
     data_path = str(args.data_path)
@@ -459,14 +496,16 @@ def run_attack():
     mlm_model.to('cuda')
 
     config_tgt = BertConfig.from_pretrained(tgt_path, num_labels=num_label)
-    tgt_model = BertForSequenceClassification.from_pretrained(tgt_path, config=config_tgt)
+    tgt_model = BertForSequenceClassification.from_pretrained(
+        tgt_path, config=config_tgt)
     tgt_model.to('cuda')
     features = get_data_cls(data_path)
     print('loading sim-embed')
-    
+
     if args.use_sim_mat == 1:
-        cos_mat, w2i, i2w = get_sim_embed('data_defense/counter-fitted-vectors.txt', 'data_defense/cos_sim_counter_fitting.npy')
-    else:        
+        cos_mat, w2i, i2w = get_sim_embed(
+            'data_defense/counter-fitted-vectors.txt', 'data_defense/cos_sim_counter_fitting.npy')
+    else:
         cos_mat, w2i, i2w = None, {}, {}
 
     print('finish get-sim-embed')
@@ -481,7 +520,8 @@ def run_attack():
         from next_word_prediction import GPT2
         replace_model = GPT2()
     elif subs == "fasttext":
-        pass
+        from gensim.models import KeyedVectors
+        fasttext = KeyedVectors.load_word2vec_format('wiki-news-300d-1M.vec')
 ### END SUBS MODEL SETUP ###
 
     with torch.no_grad():
@@ -491,7 +531,7 @@ def run_attack():
             print('\r number {:d} '.format(index) + tgt_path, end='')
             # print(feat.seq[:100], feat.label)
             feat = attack(word_imp, subs, replace_model, feat, tgt_model, mlm_model, tokenizer_tgt, k, batch_size=32, max_length=512,
-                          cos_mat=cos_mat, w2i=w2i, i2w=i2w,threshold_pred_score=threshold_pred_score)
+                          cos_mat=cos_mat, w2i=w2i, i2w=i2w, threshold_pred_score=threshold_pred_score)
 
             # print(feat.changes, feat.change, feat.query, feat.success)
             if feat.success > 2:
