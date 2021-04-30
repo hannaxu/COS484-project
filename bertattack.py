@@ -163,13 +163,13 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
 
 
 def get_substitutes(model, input_data, k):
-    # substitues L,k
+    # substitutes L,k
     # from this matrix to recover a word
     input_data = " ".join(input_data)
     return model.predict_next(input_data, k)
 
 
-# def get_bpe_substitues(substitutes, tokenizer, mlm_model):
+# def get_bpe_substitutes(substitutes, tokenizer, mlm_model):
 #     # substitutes L, k
 
 #     substitutes = substitutes[0:12, 0:4] # maximum BPE candidates

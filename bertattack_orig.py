@@ -159,8 +159,8 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
     return import_scores
 
 
-def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score=None, threshold=3.0):
-    # substitues L,k
+def get_substitutes(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score=None, threshold=3.0):
+    # substitutes L,k
     # from this matrix to recover a word
     words = []
     sub_len, k = substitutes.size()  # sub-len, k
@@ -175,7 +175,7 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
             words.append(tokenizer._convert_id_to_token(int(i)))
     else:
         if use_bpe == 1:
-            words = get_bpe_substitues(substitutes, tokenizer, mlm_model)
+            words = get_bpe_substitutes(substitutes, tokenizer, mlm_model)
         else:
             return words
     #
@@ -183,7 +183,7 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
     return words
 
 
-def get_bpe_substitues(substitutes, tokenizer, mlm_model):
+def get_bpe_substitutes(substitutes, tokenizer, mlm_model):
     # substitutes L, k
 
     substitutes = substitutes[0:12, 0:4] # maximum BPE candidates
@@ -274,7 +274,7 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
         substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
         word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
 
-        substitutes = get_substitues(substitutes, tokenizer, mlm_model, use_bpe, word_pred_scores, threshold_pred_score)
+        substitutes = get_substitutes(substitutes, tokenizer, mlm_model, use_bpe, word_pred_scores, threshold_pred_score)
 
 
         most_gap = 0.0
