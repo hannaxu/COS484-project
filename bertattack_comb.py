@@ -164,7 +164,7 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
 ### GET SUBSTITUTION ###
 
 
-def fast_get_substitutes(word_vectors, tgt_word, k):
+def fast_get_substitutes(model, tgt_word, k):
     try:
         substitutes = [word[0]
                        for word in word_vectors.similar_by_word(tgt_word, topn=k)]
@@ -178,7 +178,7 @@ def gpt2_get_substitutes(model, input_data, k):
     return model.predict_next(input_data, k)
 
 
-def glove_get_substitutes(word_vectors, tgt_word, k):
+def glove_get_substitutes(model, tgt_word, k):
     try:
         substitutes = [word[0]
                        for word in word_vectors.similar_by_word(tgt_word, topn=k)]
@@ -280,14 +280,14 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
             substitutes = get_substitutes(
                 substitutes, tokenizer, mlm_model, word_pred_scores, threshold_pred_score)
         elif subs == "glove":
-            substitutes = glove_get_substitutes(word_vectors, tgt_word, k)
+            substitutes = glove_get_substitutes(replace_model, tgt_word, k)
             if not substitutes:
                 continue
         elif subs == "gpt2":
             substitutes = gpt2_get_substitutes(
                 replace_model, words[0:top_index[0]], k)
         elif subs == "fasttext":
-            substitutes = fast_get_substitutes(fasttext, tgt_word, k)
+            substitutes = fast_get_substitutes(replace_model, tgt_word, k)
 ### END MODEL SELECTION ###
 
         most_gap = 0.0
@@ -515,13 +515,14 @@ def run_attack():
     replace_model = None
     if subs == "glove":
         import gensim.downloader as api
-        word_vectors = api.load("glove-wiki-gigaword-100")
+        replace_model = api.load("glove-wiki-gigaword-100")
     elif subs == "gpt2":
         from next_word_prediction import GPT2
         replace_model = GPT2()
     elif subs == "fasttext":
         from gensim.models import KeyedVectors
-        fasttext = KeyedVectors.load_word2vec_format('wiki-news-300d-1M.vec')
+        replace_model = KeyedVectors.load_word2vec_format(
+            'wiki-news-300d-1M.vec')
 ### END SUBS MODEL SETUP ###
 
     with torch.no_grad():
