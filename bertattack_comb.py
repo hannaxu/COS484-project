@@ -522,7 +522,7 @@ def run_attack():
     elif subs == "fasttext":
         from gensim.models import KeyedVectors
         replace_model = KeyedVectors.load_word2vec_format(
-            'wiki-news-300d-1M.vec')
+            '../drive/MyDrive/wiki-news-300d-1M.vec')
 ### END SUBS MODEL SETUP ###
 
     with torch.no_grad():
