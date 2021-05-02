@@ -288,6 +288,8 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
                 replace_model, words[0:top_index[0]], k)
         elif subs == "fasttext":
             substitutes = fast_get_substitutes(replace_model, tgt_word, k)
+            if not substitutes:
+                continue
 ### END MODEL SELECTION ###
 
         most_gap = 0.0
