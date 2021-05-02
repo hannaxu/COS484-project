@@ -167,7 +167,7 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
 def fast_get_substitutes(model, tgt_word, k):
     try:
         substitutes = [word[0]
-                       for word in word_vectors.similar_by_word(tgt_word, topn=k)]
+                       for word in model.similar_by_word(tgt_word, topn=k)]
         return substitutes
     except:
         return None
@@ -181,7 +181,7 @@ def gpt2_get_substitutes(model, input_data, k):
 def glove_get_substitutes(model, tgt_word, k):
     try:
         substitutes = [word[0]
-                       for word in word_vectors.similar_by_word(tgt_word, topn=k)]
+                       for word in model.similar_by_word(tgt_word, topn=k)]
         return substitutes
     except:
         return None
