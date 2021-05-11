@@ -252,6 +252,7 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
                                key=lambda x: x[1], reverse=False)
     elif word_imp == 'rand':
         from random import shuffle
+        important_scores = list(enumerate(important_scores))
         shuffle(important_scores)
         list_of_index = important_scores
 ### END HYPERPARAMETER WORD_IMP ###
@@ -284,6 +285,8 @@ def attack(word_imp, subs, replace_model, feature, tgt_model, mlm_model, tokeniz
             if not substitutes:
                 continue
         elif subs == "gpt2":
+            if tgt_word == words[0]:
+                continue
             substitutes = gpt2_get_substitutes(
                 replace_model, words[0:top_index[0]], k)
         elif subs == "fasttext":
